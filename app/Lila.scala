@@ -112,6 +112,8 @@ final class LilaComponents(
     wire[ExternalAssets]
   lazy val account: Account = wire[Account]
   lazy val analyse: Analyse = wire[Analyse]
+  private lazy val analysisService = env.analysisApi.service
+  lazy val analyzeApi: AnalyzeApi = wire[AnalyzeApi]
   lazy val api: Api = wire[Api]
   lazy val appealC: appeal.Appeal = wire[appeal.Appeal]
   lazy val auth: Auth = wire[Auth]
