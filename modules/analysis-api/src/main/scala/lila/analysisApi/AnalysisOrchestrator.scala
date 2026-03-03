@@ -1,19 +1,29 @@
 package lila.analysisApi
 
 import scala.concurrent.{ ExecutionContext, Future }
-import java.util.concurrent.Semaphore
+import java.util.concurrent.ArrayBlockingQueue
 import lila.tree.{ Eval, Info }
 
 /**
- * Orchestrates full-game analysis by coordinating multiple StockfishProcesses in parallel.
+ * Orchestrates full-game analysis using a pre-warmed pool of Stockfish engines.
  */
 final class AnalysisOrchestrator(
     path: String
 )(using ec: ExecutionContext):
 
-  // Limit concurrent engines to half of available CPU cores to ensure system stability
-  private val cores = (Runtime.getRuntime().availableProcessors() / 2).max(1)
-  private val semaphore = new Semaphore(cores)
+  // Unleash full CPU power: Use all available cores except one (for OS/server overhead)
+  private val poolSize = (Runtime.getRuntime().availableProcessors() - 1).max(1)
+  private val enginePool = new ArrayBlockingQueue[StockfishProcess](poolSize)
+
+  // Warm up the engines on startup
+  println(s"Warming up $poolSize Stockfish engines...")
+  for (_ <- 1 to poolSize) do
+    val engine = new StockfishProcess(path, Nil)
+    engine.start()
+    engine.send("setoption name Threads value 1") 
+    engine.isReady
+    enginePool.put(engine)
+  println(s"Engine pool initialized with $poolSize engines.")
 
   def analyze(moves: List[String], depth: Int): Future[List[Info]] =
     println(s"Orchestrating analysis for ${moves.size} moves with depth $depth")
@@ -30,32 +40,31 @@ final class AnalysisOrchestrator(
       sortedEvals.tail.map { case (ply, eval) =>
         val prevEval = sortedEvals.find(_._1 == ply - 1).map(_._2).getOrElse(lila.tree.evals.empty)
         
-        // Variation is the best alternative from the previous position
-        val variation = prevEval.best.toList.map(u => chess.format.pgn.SanStr(u.uci))
-        
+        val playedMoveUci = moves(ply - 1)
+        val variation = prevEval.best.toList
+          .filter(_.uci != playedMoveUci)
+          .map(u => chess.format.pgn.SanStr(u.uci))
+          
         val info = Info(chess.Ply(ply), eval, variation)
         
-        // Lichess logic: Only keep the variation (which triggers "X was best") if the move is an Inaccuracy, Mistake, or Blunder.
-        // If it's a good move, drop the variation.
         val prevInfo = if (ply == 1) Info.start(chess.Ply(0)) else Info(chess.Ply(ply - 1), prevEval, Nil)
         
         lila.tree.Advice(prevInfo, info) match
           case Some(adv) if adv.judgment.isMistakeOrBlunder || adv.judgment == lila.tree.Advice.Judgement.Inaccuracy => 
-            info // Keep variation for mistakes
+            info
           case _ => 
-            info.dropVariation // Drop variation for Brilliant, Great, or normal moves
+            info.dropVariation
       }
     }
 
-  // Returns (ply, Eval)
   private def analyzeSinglePosition(movesSoFar: List[String], ply: Int, depth: Int): Future[(Int, Eval)] = Future {
-    semaphore.acquire()
-    val engine = new StockfishProcess(path, Nil)
+    // Borrow an engine from the pool (blocks until one is available)
+    val engine = enginePool.take()
     try
-      engine.start()
-      engine.send("setoption name Threads value 1") 
+      // Clear the engine's internal hash table before giving it a new isolated position
+      engine.send("ucinewgame")
       engine.isReady
-      
+
       engine.position(movesSoFar)
       val lines = engine.go(depth)
       
@@ -66,6 +75,7 @@ final class AnalysisOrchestrator(
         println(s"Error evaluating ply $ply: ${e.getMessage}")
         throw e
     finally
-      engine.stop()
-      semaphore.release()
+      // Return the engine to the pool for the next job
+      enginePool.put(engine)
   }
+
