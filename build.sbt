@@ -67,7 +67,7 @@ lazy val modules = Seq(
   // level 4
   memo, rating,
   // level 5
-  game, gathering, study, user, puzzle, analyse,
+  game, gathering, study, user, puzzle, analyse, analysisApi,
   report, pref, chat, playban, lobby, mailer, oauth,
   // level 6
   insight, evaluation, storm,
@@ -264,6 +264,11 @@ lazy val analyse = module("analyse",
   Seq(tree, memo, ui),
   tests.bundle
 ).dependsOn(coreI18n % "test->test")
+
+lazy val analysisApi = module("analysis-api",
+  Seq(analyse, tree, common),
+  tests.bundle
+)
 
 lazy val round = module("round",
   Seq(room, game, user, playban, pref, chat),

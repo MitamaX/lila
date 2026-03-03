@@ -8,6 +8,7 @@ final class Env(
 )(
     val annotator: lila.analyse.Annotator
 ):
-  lazy val stockfishProcess = wire[StockfishProcess]
-  lazy val orchestrator = wire[AnalysisOrchestrator]
-  lazy val service = wire[AnalysisService]
+  private val stockfishPath = "/usr/games/stockfish"
+  
+  lazy val orchestrator = new AnalysisOrchestrator(stockfishPath)
+  lazy val service = new AnalysisService(orchestrator, annotator)

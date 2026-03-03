@@ -1,12 +1,15 @@
 package lila.analysisApi
 
 import play.api.libs.json.*
-import lila.tree.{ Analysis, Advice, AccuracyPercent }
-import lila.analyse.Annotator
+import lila.tree.{ Analysis, Advice }
+import lila.analyse.{ Annotator, AccuracyPercent }
+import lila.core.game.{ Game, Player, GameMetadata }
+import lila.core.id.{ GameId, GamePlayerId }
+import chess.{ ByColor, Color, Status, Game as ChessGame }
 
 case class AnalysisReport(
-    accuracy: Map[chess.Color, Int],
-    summary: Map[chess.Color, Map[String, Int]],
+    accuracy: Map[Color, Int],
+    summary: Map[Color, Map[String, Int]],
     pgn: String,
     evals: List[JsValue]
 ):
@@ -20,41 +23,100 @@ case class AnalysisReport(
 object ReportGenerator:
 
   def apply(analysis: Analysis, pgn: chess.format.pgn.Pgn, annotator: Annotator): AnalysisReport =
+    val accuracies = AccuracyPercent.gameAccuracy(Color.White, analysis)
+    
+    // Debug print (will show in docker logs)
+    println(s"DEBUG - Accuracies: $accuracies")
+
     val accuracy = Map(
-      chess.Color.White -> analysis.accuracy(chess.Color.White).getOrElse(0),
-      chess.Color.Black -> analysis.accuracy(chess.Color.Black).getOrElse(0)
+      Color.White -> accuracies.map(_.white.value.toInt).getOrElse(0),
+      Color.Black -> accuracies.map(_.black.value.toInt).getOrElse(0)
     )
 
     val summary = Map(
-      chess.Color.White -> judgementCounts(analysis, chess.Color.White),
-      chess.Color.Black -> judgementCounts(analysis, chess.Color.Black)
+      Color.White -> judgmentCounts(analysis, Color.White),
+      Color.Black -> judgmentCounts(analysis, Color.Black)
     )
 
     // Using dummy game for now as we are stateless
-    val game = lila.core.game.Game(
-      id = lila.core.game.Game.Id("stateles"),
-      whitePlayer = lila.core.game.Player.white,
-      blackPlayer = lila.core.game.Player.black,
-      binaryMoves = Nil,
-      status = chess.Status.Started,
-      turns = analysis.infos.size,
-      variant = chess.variant.Standard,
-      createdAt = lila.common.LichessDay.now.dateTime
+    val game = Game(
+      id = GameId("stateless"),
+      players = ByColor(
+        Player(
+          id = GamePlayerId("p0"), 
+          color = Color.White,
+          aiLevel = None,
+          isWinner = None,
+          isOfferingDraw = false,
+          proposeTakebackAt = chess.Ply.initial,
+          userId = None,
+          rating = None,
+          ratingDiff = None,
+          provisional = chess.rating.RatingProvisional(false),
+          blurs = lila.core.game.Blurs(0),
+          berserk = false,
+          blindfold = false,
+          name = None
+        ),
+        Player(
+          id = GamePlayerId("p1"), 
+          color = Color.Black,
+          aiLevel = None,
+          isWinner = None,
+          isOfferingDraw = false,
+          proposeTakebackAt = chess.Ply.initial,
+          userId = None,
+          rating = None,
+          ratingDiff = None,
+          provisional = chess.rating.RatingProvisional(false),
+          blurs = lila.core.game.Blurs(0),
+          berserk = false,
+          blindfold = false,
+          name = None
+        )
+      ),
+      chess = ChessGame(chess.variant.Standard),
+      status = Status.Started,
+      daysPerTurn = None,
+      metadata = GameMetadata(
+        source = Some(lila.core.game.Source.Api),
+        pgnImport = None,
+        tournamentId = None,
+        swissId = None,
+        simulId = None,
+        analysed = true,
+        drawOffers = lila.core.game.GameDrawOffers(white = Set.empty, black = Set.empty),
+        rules = Set.empty
+      ),
+      createdAt = lila.common.nowInstant,
+      movedAt = lila.common.nowInstant
     )
 
-    val annotatedPgn = annotator(pgn, game, Some(analysis))
+    val annotatedPgn = annotator.addEvals(pgn, analysis)
+
+    val advicesByPly = analysis.advices.map(a => a.ply -> a).toMap
 
     val evals = analysis.infos.map { info =>
-      Json.obj(
+      val baseObj = Json.obj(
         "ply" -> info.ply.value,
-        "eval" -> info.eval.cp.map(_.value).getOrElse(0),
+        "eval" -> info.eval.score.flatMap(_.cp).map(_.value).getOrElse(0),
         "mate" -> info.eval.mate.map(_.value)
       )
+      
+      advicesByPly.get(info.ply) match
+        case Some(advice) => 
+          baseObj ++ Json.obj(
+            "judgment" -> Json.obj(
+              "name" -> advice.judgment.name,
+              "comment" -> advice.makeComment(withEval = false).value
+            )
+          )
+        case None => baseObj
     }
 
     AnalysisReport(accuracy, summary, annotator.toPgnString(annotatedPgn).value, evals)
 
-  private def judgementCounts(analysis: Analysis, color: chess.Color): Map[String, Int] =
+  private def judgmentCounts(analysis: Analysis, color: Color): Map[String, Int] =
     analysis.advices.filter(_.color == color).foldLeft(Map.empty[String, Int]): (acc, advice) =>
-      val name = advice.judgement.name
+      val name = advice.judgment.name
       acc.updated(name, acc.getOrElse(name, 0) + 1)

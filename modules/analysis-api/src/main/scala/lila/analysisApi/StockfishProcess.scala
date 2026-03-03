@@ -2,7 +2,6 @@ package lila.analysisApi
 
 import java.io.{ BufferedReader, InputStreamReader, PrintWriter }
 import scala.concurrent.{ ExecutionContext, Future }
-import lila.common.ThreadLocalRandom
 
 final class StockfishProcess(
     path: String,
@@ -19,11 +18,19 @@ final class StockfishProcess(
     process = Some(p)
     out = Some(new PrintWriter(p.getOutputStream, true))
     in = Some(new BufferedReader(new InputStreamReader(p.getInputStream)))
+    
+    // Ensure engine is alive and responsive
+    send("uci")
+    readUntil(_ == "uciok")
+    send("setoption name UCI_Chess960 value true") // Critical for scalachess castling (e1a1 instead of e1c1)
+    send("setoption name MultiPV value 1") // Use MultiPV 1 for consistent analysis
+    send("setoption name Hash value 32")
+    isReady // Wait for readyok
 
   def send(command: String): Unit =
     out.foreach(_.println(command))
 
-  def readUntil(predicate: String => Boolean): Future[List[String]] = Future:
+  def readUntil(predicate: String => Boolean): List[String] =
     var lines = List.empty[String]
     var found = false
     while !found && in.isDefined do
@@ -34,15 +41,17 @@ final class StockfishProcess(
         if predicate(line) then found = true
     lines.reverse
 
-  def isReady: Future[Boolean] =
+  def isReady: Boolean =
     send("isready")
-    readUntil(_ == "readyok").map(_.contains("readyok"))
+    readUntil(_ == "readyok").contains("readyok")
 
   def position(moves: List[String]): Unit =
     if moves.isEmpty then send("position startpos")
     else send(s"position startpos moves ${moves.mkString(" ")}")
+    isReady // Critical: wait for engine to set up the internal board
 
-  def go(depth: Int): Future[List[String]] =
+  def go(depth: Int): List[String] =
+    isReady // Ensure engine is ready for search
     send(s"go depth $depth")
     readUntil(_.startsWith("bestmove"))
 

@@ -7,7 +7,9 @@
 - [x] **Phase 1: Foundation** - 프로젝트 빌드 설정 및 엔진 통신 기반 마련 (completed 2026-03-02)
 - [x] **Phase 2: Engine Bridge** - Stockfish UCI 오케스트레이션 및 데이터 매핑 (completed 2026-03-02)
 - [x] **Phase 3: Lichess Logic Integration** - 분석 정확도 및 오차 판정 로직 통합 (completed 2026-03-02)
-- [x] **Phase 4: API & Reporting** - 외부 호출 인터페이스 및 상세 리포트 제공 (completed 2026-03-02)
+- [x] **Phase 4: API & Reporting** - 외부 호출 인터페이스 및 상세 리포트 제공 (completed 2026-03-02)
+- [x] **Phase 5: Dockerization & Deployment** - Docker 이미지 패키징 및 배포 환경 구축 (completed 2026-03-02)
+- [x] **Phase 6: Lichess Deep Dive** - 라이브러리 전수 탐색 및 결과값 100% 일치 조정 (completed 2026-03-03)
 
 ## Phase Details
 
@@ -54,7 +56,29 @@
   3. Lichess 스타일의 주석(Glyphs, Variations)이 포함된 분석된 PGN 텍스트를 반환함.
   4. 게임 단계별(Opening/Mid/End) 통계 및 ECO 정보가 리포트에 포함됨.
 **Plans**:
-- [ ] 04-01-PLAN.md — Implementation of the analysis API and advanced reporting.
+- [x] 04-01-PLAN.md — Implementation of the analysis API and advanced reporting.
+
+### Phase 5: Dockerization & Deployment
+**Goal**: 프로젝트를 Docker 이미지로 빌드하고 독립적인 실행 환경을 구축합니다.
+**Depends on**: Phase 4
+**Requirements**: DEPLOY-01, DEPLOY-02
+**Success Criteria**:
+  1. `Dockerfile`을 통해 애플리케이션 빌드 및 실행 이미지가 생성됨.
+  2. `docker-compose.yml`을 사용하여 Redis/MongoDB와 함께 통합 실행이 가능함.
+  3. 컨테이너 내부에서 Stockfish 엔진이 정상적으로 호출됨.
+**Plans**:
+- [x] 05-01-PLAN.md — Dockerization and deployment orchestration.
+
+### Phase 6: Lichess Deep Dive
+**Goal**: Lichess 라이브러리(특히 scalachess)를 전수 분석하여 평가치 기반이 아닌 정교한 판정 로직을 구축하고, 결과값의 100% 일치를 달성합니다.
+**Depends on**: Phase 5
+**Requirements**: CORE-04, CORE-05
+**Success Criteria**:
+  1. `scalachess` 내의 수 판정(Judgement) 및 분석 모델 로직이 완전히 파악됨.
+  2. 단순 평가치(Centipawn) 변화 외에 기물 배치, 전술적 요소가 반영된 판정 시스템 구축.
+  3. 테스트 데이터셋에 대해 Lichess 공식 서버와 100% 동일한 정확도 및 판정 결과 출력.
+**Plans**:
+- [x] 06-01-PLAN.md — Deep dive research and implementation of advanced judgement logic.
 
 ## Progress Table
 
@@ -63,7 +87,9 @@
 | 1. Foundation | 1/1 | Complete    | 2026-03-02 |
 | 2. Engine Bridge | 1/1 | Complete | 2026-03-02 |
 | 3. Lichess Logic Integration | 1/1 | Complete | 2026-03-02 |
-| 4. API & Reporting | 0/1 | Complete    | 2026-03-02 |
+| 4. API & Reporting | 1/1 | Complete    | 2026-03-02 |
+| 5. Dockerization & Deployment | 1/1 | Complete    | 2026-03-02 |
+| 6. Lichess Deep Dive | 1/1 | Complete    | 2026-03-03 |
 
 ---
-*Last updated: 2026-03-02*
+*Last updated: 2026-03-03*

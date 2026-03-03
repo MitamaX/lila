@@ -24,6 +24,8 @@ sealed trait Advice:
 object Advice:
 
   enum Judgement(val glyph: Glyph, val name: String):
+    case Brilliant extends Judgement(Glyph.MoveAssessment.brilliant, "Brilliant")
+    case GreatMove extends Judgement(Glyph.MoveAssessment.good, "Great move")
     case Inaccuracy extends Judgement(Glyph.MoveAssessment.dubious, "Inaccuracy")
     case Mistake extends Judgement(Glyph.MoveAssessment.mistake, "Mistake")
     case Blunder extends Judgement(Glyph.MoveAssessment.blunder, "Blunder")
@@ -54,8 +56,12 @@ private[tree] object CpAdvice:
       infoCp <- info.cp
       prevWinningChances = WinPercent.winningChances(cp)
       currentWinningChances = WinPercent.winningChances(infoCp)
-      delta = (currentWinningChances - prevWinningChances).pipe(d => info.color.fold(-d, d))
-      judgement <- winningChanceJudgements.find((d, _) => d <= delta)._2F
+      delta = (currentWinningChances - prevWinningChances).pipe(d => info.color.fold(d, -d))
+      judgement <- delta match
+        case d if d <= -0.1 => winningChanceJudgements.find((limit, _) => limit <= -d).map(_._2)
+        case d if d >= 0.15 => Some(Advice.Judgement.Brilliant)
+        case d if d >= 0.05 => Some(Advice.Judgement.GreatMove)
+        case _ => None
     yield CpAdvice(judgement, info, prev)
 
 sealed abstract private[tree] class MateSequence(val desc: String)

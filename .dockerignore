@@ -1,0 +1,16 @@
+.git
+.planning
+target
+project/target
+modules/*/target
+ui/node_modules
+node_modules
+*.tar
+*.tar.gz
+*.json
+!build.sbt
+!project/plugins.sbt
+!project/build.properties
+!project/Dependencies.scala
+!project/BuildSettings.scala
+!project/I18n.scala
