@@ -119,8 +119,7 @@ final class RemoteSocket(
     send.exec(Out.streamersOnline(s.streamers))
 
   object NoOpSender extends Sender:
-    protected val conn: PubSub[String, String] = null
-    override protected def sendTo(channel: Channel, msg: String) = ()
+    protected val conn: PubSub[String, String] = null.asInstanceOf[PubSub[String, String]]
     def apply(msg: String) = ()
     def sticky(id: String, msg: String) = ()
 
