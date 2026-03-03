@@ -71,7 +71,7 @@ object MongoRateLimit:
 
 final class MongoRateLimitApi(db: lila.db.Db, config: MemoConfig):
 
-  private val coll = db(config.cacheColl)
+  private lazy val coll = db(config.cacheColl)
 
   def apply[K](
       name: String,

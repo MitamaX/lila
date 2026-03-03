@@ -49,7 +49,7 @@ object SettingStore:
   type Init[A] = (ConfigValue[A], DbValue[A]) => A
 
   final class Builder(db: lila.db.Db, config: MemoConfig)(using Executor):
-    val coll = db(config.configColl)
+    lazy val coll = db(config.configColl)
     def apply[A: BSONHandler: StringReader: Formable](
         id: String,
         default: A,

@@ -34,7 +34,7 @@ final class Env(
   given ConfigLoader[PicfitConfig] = AutoConfig.loader
   given ConfigLoader[CloudflareConfig] = AutoConfig.loader
   val config = appConfig.get[MemoConfig]("memo")(using AutoConfig.loader)
-  private val picfitColl = db(config.picfit.collection)
+  private lazy val picfitColl = db(config.picfit.collection)
   private val picfitConfig = config.picfit
   private val cloudflareConfig = config.cloudflare
 
@@ -44,21 +44,21 @@ final class Env(
 
   val settingStore = wire[SettingStore.Builder]
 
-  val mongoCacheApi = wire[MongoCache.Api]
+  lazy val mongoCacheApi = wire[MongoCache.Api]
 
-  val mongoRateLimitApi = wire[MongoRateLimitApi]
+  lazy val mongoRateLimitApi = wire[MongoRateLimitApi]
 
-  private val cloudflareApi = wire[CloudflareApi]
+  private lazy val cloudflareApi = wire[CloudflareApi]
 
-  private val onPicfitUrl: (ImageId, Url) => Unit = wire[PicfitApi.OnNewUrl].apply
+  private lazy val onPicfitUrl: (ImageId, Url) => Unit = wire[PicfitApi.OnNewUrl].apply
 
-  val picfitUrl = wire[PicfitUrl]
+  lazy val picfitUrl = wire[PicfitUrl]
 
-  val picfitApi = wire[PicfitApi]
+  lazy val picfitApi = wire[PicfitApi]
 
-  val markdown = wire[MarkdownCache]
+  lazy val markdown = wire[MarkdownCache]
 
-  val viewerCount = wire[ViewerCountApi]
+  lazy val viewerCount = wire[ViewerCountApi]
 
   lila.common.Cli.handle:
     case "cache" :: "clear" :: name :: Nil =>

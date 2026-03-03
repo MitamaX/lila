@@ -56,7 +56,7 @@ final class ViewerCountApi(db: lila.db.Db, cacheApi: CacheApi)(using scheduler: 
 
   private val ttl = 20.minutes
 
-  private val coll = db(CollName("viewer_count"))
+  private lazy val coll = db(CollName("viewer_count"))
 
   private val cache = cacheApi.notLoading[CountKey, ViewerCount](512, "viewerCount"):
     _.expireAfterAccess(ttl)

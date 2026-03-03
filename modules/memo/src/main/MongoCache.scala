@@ -63,7 +63,7 @@ object MongoCache:
       cacheApi: CacheApi
   )(using Executor):
 
-    private val coll = db(config.cacheColl)
+    private lazy val coll = db(config.cacheColl)
 
     // AsyncLoadingCache with monitoring and DB persistence
     def apply[K, V: BSONHandler](
