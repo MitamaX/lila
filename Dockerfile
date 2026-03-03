@@ -53,8 +53,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
   CMD curl -f http://localhost:9000/api/health || exit 1
 
 # Environment variables with defaults
-ENV REDIS_URI=redis://redis:6379
-ENV MONGO_URI=mongodb://mongodb:27017/lila
 ENV PORT=9000
 
 # Run the application

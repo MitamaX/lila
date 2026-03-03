@@ -17,7 +17,7 @@ import lila.core.socket.remote.*
 import lila.core.socket.{ SocketRequester as _, * }
 
 final class RemoteSocket(
-    redisClient: RedisClient,
+    redisClientOpt: Option[RedisClient],
     shutdown: CoordinatedShutdown,
     requester: SocketRequester,
     userLag: UserLagCache
@@ -118,6 +118,12 @@ final class RemoteSocket(
   Bus.sub[StreamersOnline]: s =>
     send.exec(Out.streamersOnline(s.streamers))
 
+  object NoOpSender extends Sender:
+    protected val conn: PubSub[String, String] = null
+    override protected def sendTo(channel: Channel, msg: String) = ()
+    def apply(msg: String) = ()
+    def sticky(id: String, msg: String) = ()
+
   final class StoppableSender(val conn: PubSub[String, String], channel: Channel) extends Sender:
     def apply(msg: String) = if !stopping then super.sendTo(channel, msg)
     def sticky(_id: String, msg: String) = apply(msg)
@@ -132,8 +138,11 @@ final class RemoteSocket(
       if !stopping then conn.async.publish(s"$channel:$subChannel", msg)
 
   def makeSender(channel: Channel, parallelism: Int = 1): Sender =
-    if parallelism > 1 then RoundRobinSender(redisClient.connectPubSub(), channel, parallelism)
-    else StoppableSender(redisClient.connectPubSub(), channel)
+    redisClientOpt match
+      case None => NoOpSender
+      case Some(client) =>
+        if parallelism > 1 then RoundRobinSender(client.connectPubSub(), channel, parallelism)
+        else StoppableSender(client.connectPubSub(), channel)
 
   private val send: SocketSend = makeSender("site-out").send
 
@@ -169,17 +178,20 @@ final class RemoteSocket(
     }
 
   private def connectAndSubscribe(channel: Channel)(f: String => Unit): Funit =
-    val conn = redisClient.connectPubSub()
-    conn.addListener(
-      new pubsub.RedisPubSubAdapter[String, String]:
-        override def message(_channel: String, message: String): Unit = f(message)
-    )
-    val subPromise = Promise[Unit]()
-    conn.async
-      .subscribe(channel)
-      .thenRun: () =>
-        subPromise.success(())
-    subPromise.future
+    redisClientOpt match
+      case None => funit
+      case Some(client) =>
+        val conn = client.connectPubSub()
+        conn.addListener(
+          new pubsub.RedisPubSubAdapter[String, String]:
+            override def message(_channel: String, message: String): Unit = f(message)
+        )
+        val subPromise = Promise[Unit]()
+        conn.async
+          .subscribe(channel)
+          .thenRun: () =>
+            subPromise.success(())
+        subPromise.future
 
   Lilakka.shutdown(shutdown, _.PhaseBeforeServiceUnbind, "Telling lila-ws we're stopping"): () =>
     requester[Unit](
@@ -192,7 +204,7 @@ final class RemoteSocket(
   Lilakka.shutdown(shutdown, _.PhaseServiceUnbind, "Stopping the socket redis pool"): () =>
     Future:
       stopping = true
-      redisClient.shutdown()
+      redisClientOpt.foreach(_.shutdown())
 
 object RemoteSocket:
 

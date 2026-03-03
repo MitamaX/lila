@@ -12,5 +12,3 @@ user.password.bpass.secret = "9qEYN0ThHer1KWLNekA76Q=="
 
 # override additional values from base.conf here
 mongodb.uri = ${?MONGO_URI}
-socket.redis.uri = ${?REDIS_URI}
-redis.uri = ${?REDIS_URI}

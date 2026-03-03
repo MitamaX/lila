@@ -10,14 +10,17 @@ import lila.core.socket.{ SocketRequester as _, * }
 @Module
 final class Env(appConfig: Configuration, shutdown: CoordinatedShutdown)(using Executor, Scheduler):
 
-  private val redisClient = RedisClient.create(RedisURI.create(appConfig.get[String]("socket.redis.uri")))
+  private val redisClientOpt: Option[RedisClient] =
+    appConfig.getOptional[String]("socket.redis.uri").filter(_.nonEmpty).map { uri =>
+      RedisClient.create(RedisURI.create(uri))
+    }
 
   val userLag = new UserLagCache
   export userLag.{ getLagRating, put as putLag }
 
   val requester = new SocketRequester
 
-  val remoteSocket: RemoteSocket = wire[RemoteSocket]
+  val remoteSocket: RemoteSocket = new RemoteSocket(redisClientOpt, shutdown, requester, userLag)
   export remoteSocket.{ kit, parallelKit }
 
   remoteSocket.subscribe("site-in", RemoteSocket.Protocol.In.baseReader)(remoteSocket.baseHandler)
