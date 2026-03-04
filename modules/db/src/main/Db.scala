@@ -37,16 +37,26 @@ final class Db(
 
   private val logger = lila.db.logger.branch(name)
 
-  private lazy val db: DB = Chronometer.syncEffect(
-    MongoConnection
-      .fromString(uri)
-      .flatMap: parsedUri =>
-        driver
-          .connect(parsedUri, name.some)
-          .flatMap(_.database(parsedUri.db.getOrElse("lichess")))
-      .await(5.seconds, s"db:$name")
-  ) { lap =>
-    logger.info(s"MongoDB connected to $uri in ${lap.showDuration}")
-  }
+  private lazy val db: Option[DB] =
+    try
+      val connected = Chronometer.syncEffect(
+        MongoConnection
+          .fromString(uri)
+          .flatMap: parsedUri =>
+            driver
+              .connect(parsedUri, name.some)
+              .flatMap(_.database(parsedUri.db.getOrElse("lichess")))
+          .await(5.seconds, s"db:$name")
+      ) { lap =>
+        logger.info(s"MongoDB connected to $uri in ${lap.showDuration}")
+      }
+      Some(connected)
+    catch
+      case e: Exception =>
+        logger.warn(s"MongoDB not available [$name]: ${e.getMessage}. DB operations will fail if used.")
+        None
 
-  def apply(name: CollName): Coll = db.collection(name.value)
+  def apply(name: CollName): Coll =
+    db match
+      case Some(d) => d.collection(name.value)
+      case None    => null.asInstanceOf[Coll]

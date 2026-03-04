@@ -18,12 +18,12 @@ final class Env(
     onlineIds: lila.core.socket.OnlineIds
 )(using Executor)(using scheduler: Scheduler):
 
-  val perfsRepo = UserPerfsRepo(db(CollName("user_perf")))
-  val repo = UserRepo(db(CollName("user4")))
+  lazy val perfsRepo = UserPerfsRepo(db(CollName("user_perf")))
+  lazy val repo = UserRepo(db(CollName("user4")))
 
-  val api = wire[UserApi]
+  lazy val api = wire[UserApi]
 
-  val lightUserApi: LightUserApi = wire[LightUserApi]
+  lazy val lightUserApi: LightUserApi = wire[LightUserApi]
 
   export lightUserApi.{
     async as lightUser,
@@ -48,7 +48,7 @@ final class Env(
 
   lazy val forms = wire[UserForm]
 
-  val flairApi = wire[FlairApi]
+  lazy val flairApi = wire[FlairApi]
 
   val flagApi: lila.core.user.FlagApi = Flags
 

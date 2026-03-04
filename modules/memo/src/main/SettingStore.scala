@@ -29,7 +29,8 @@ final class SettingStore[A: BSONHandler: SettingStore.StringReader: SettingStore
 
   def set(v: A): Funit =
     value = v
-    coll.update.one(dbId, $set(dbField -> v), upsert = true).void
+    if coll != null then coll.update.one(dbId, $set(dbField -> v), upsert = true).void
+    else funit
 
   def form: Form[?] = summon[SettingStore.Formable[A]].form(value)
 
@@ -37,9 +38,10 @@ final class SettingStore[A: BSONHandler: SettingStore.StringReader: SettingStore
 
   private val dbId = $id(id)
 
-  coll.primitiveOne[A](dbId, dbField).map2 { (v: A) =>
-    value = init(ConfigValue(default), DbValue(v))
-  }
+  if coll != null then
+    coll.primitiveOne[A](dbId, dbField).map2 { (v: A) =>
+      value = init(ConfigValue(default), DbValue(v))
+    }
 
 object SettingStore:
 
